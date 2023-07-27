@@ -45,10 +45,11 @@ func New(cfg Config, source ScreenshotSource, dest ScreenshotDest) *Server {
 		dest:   dest,
 	}
 	s.Handler = whmux.Dir{
-		"":       whmux.Exact(http.HandlerFunc(s.pageLanding)),
-		"pause":  whmux.ExactPath(http.HandlerFunc(s.pagePause)),
-		"resume": whmux.ExactPath(http.HandlerFunc(s.pageResume)),
-		"latest": whmux.Exact(http.HandlerFunc(s.pageLatest)),
+		"":            whmux.Exact(http.HandlerFunc(s.pageLanding)),
+		"pause":       whmux.ExactPath(http.HandlerFunc(s.pagePause)),
+		"resume":      whmux.ExactPath(http.HandlerFunc(s.pageResume)),
+		"latest":      whmux.Exact(http.HandlerFunc(s.pageLatest)),
+		"favicon.ico": whmux.Exact(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})),
 	}
 	return s
 }
