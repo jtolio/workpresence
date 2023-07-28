@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jtolio/workpresence/utils"
 	"github.com/zeebo/errs"
 	"storj.io/uplink"
 )
@@ -13,7 +14,8 @@ type Config struct {
 	UplinkAccess string        `help:"storj uplink access grant"`
 	Bucket       string        `help:"storj bucket"`
 	PathPrefix   string        `help:"storj path prefix"`
-	Expiration   time.Duration `default:"5m" help:"when screenshots expire. 0 means no expiration."`
+	Expiration   time.Duration `default:"1m" help:"when screenshots expire. 0 means no expiration."`
+	History      bool          `help:"if true, keep history" default:"false"`
 }
 
 type ImageDest struct {
@@ -38,7 +40,7 @@ func NewImageDest(ctx context.Context, cfg Config) (*ImageDest, error) {
 	return d, err
 }
 
-func (d *ImageDest) upload(ctx context.Context, path string, data []byte, expiration time.Time) error {
+func (d *ImageDest) upload(ctx context.Context, path string, data []byte, mimeType string, expiration time.Time) error {
 	w, err := d.proj.UploadObject(ctx, d.cfg.Bucket, d.cfg.PathPrefix+path,
 		&uplink.UploadOptions{Expires: expiration})
 	if err != nil {
@@ -48,6 +50,11 @@ func (d *ImageDest) upload(ctx context.Context, path string, data []byte, expira
 	if err != nil {
 		return errs.Combine(err, w.Abort())
 	}
+	if mimeType != "" {
+		err = w.SetCustomMetadata(ctx, uplink.CustomMetadata{
+			"Content-Type": mimeType,
+		})
+	}
 	return w.Commit()
 }
 
@@ -56,20 +63,22 @@ func (d *ImageDest) init(ctx context.Context) error {
 	if err == nil || !errors.Is(err, uplink.ErrObjectNotFound) {
 		return err
 	}
-	return d.upload(ctx, "index.html", indexHTML, time.Time{})
+	return d.upload(ctx, "index.html", indexHTML, "text/html", time.Time{})
 }
 
-func (d *ImageDest) Store(ctx context.Context, ts time.Time, img []byte, extension string) error {
-	pathname := ts.UTC().Format("2006/01/02/15-04-05" + extension)
+func (d *ImageDest) Store(ctx context.Context, ts time.Time, img *utils.SerializedImage) error {
+	pathname := ts.UTC().Format("2006/01/02/15-04-05" + img.Extension)
 	var expiration time.Time
 	if d.cfg.Expiration > 0 {
 		expiration = time.Now().Add(d.cfg.Expiration)
 	}
-	err := d.upload(ctx, pathname, img, expiration)
-	if err != nil {
-		return err
+	if d.cfg.History {
+		err := d.upload(ctx, pathname, img.Data, img.MIMEType, expiration)
+		if err != nil {
+			return err
+		}
 	}
-	return d.upload(ctx, "latest", []byte(pathname), expiration)
+	return d.upload(ctx, "latest", img.Data, img.MIMEType, expiration)
 }
 
 func (d *ImageDest) Close() error {

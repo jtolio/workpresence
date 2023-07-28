@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -21,11 +22,11 @@ type Config struct {
 }
 
 type ScreenshotSource interface {
-	Screenshot(ctx context.Context) (data []byte, extension, mimetype string, err error)
+	Screenshot(context.Context) (*utils.SerializedImage, error)
 }
 
 type ScreenshotDest interface {
-	Store(ctx context.Context, ts time.Time, img []byte, extension string) error
+	Store(context.Context, time.Time, *utils.SerializedImage) error
 }
 
 type Server struct {
@@ -65,25 +66,19 @@ func (s *Server) interval() time.Duration {
 	return rv
 }
 
-type screenshot struct {
-	data      []byte
-	extension string
-	mimetype  string
-}
-
 func (s *Server) Run(ctx context.Context) error {
 	for time2.Sleep(ctx, s.interval()) {
 		if s.paused.Load() {
 			continue
 		}
 		ts := time.Now()
-		img, extension, mimetype, err := s.source.Screenshot(ctx)
+		img, err := s.source.Screenshot(ctx)
 		if err != nil {
-			slog.Error("failed to capture screenshot", err)
+			slog.Error("failed to capture screenshot", fmt.Errorf("%+w", err))
 			continue
 		}
-		s.latest.Store(&screenshot{data: img, extension: extension, mimetype: mimetype})
-		err = s.dest.Store(ctx, ts, img, extension)
+		s.latest.Store(img)
+		err = s.dest.Store(ctx, ts, img)
 		if err != nil {
 			slog.Error("failed to store screenshot", err)
 			continue
@@ -118,8 +113,8 @@ func (s *Server) pageLanding(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pageLatest(w http.ResponseWriter, r *http.Request) {
-	if latest, ok := s.latest.Load().(*screenshot); ok && latest != nil {
-		w.Header().Set("Content-Type", latest.mimetype)
-		try.E1(w.Write(latest.data))
+	if latest, ok := s.latest.Load().(*utils.SerializedImage); ok && latest != nil {
+		w.Header().Set("Content-Type", latest.MIMEType)
+		try.E1(w.Write(latest.Data))
 	}
 }

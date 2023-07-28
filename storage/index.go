@@ -8,17 +8,10 @@ var indexHTML = []byte(`<!doctype html>
 </div>
 
 <script>
-	async function tick() {
-		var response = await fetch("./latest");
-		if (response.status != 200) {
-			if (response.status != 404) {
-				console.log(response);
-			}
-			return;
-		}
-		document.getElementById("latest").src = await response.text()
+	function tick() {
+		document.getElementById("latest").src = "./latest#" + new Date().getTime();
 	}
-	async function main() {
+	function main() {
 		setInterval(tick, 5000);
 		tick();
 	}
