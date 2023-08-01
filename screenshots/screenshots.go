@@ -20,8 +20,9 @@ import (
 
 type Config struct {
 	Command     string `default:"spectacle -m -b -n -o {{.Output}} -d 0 -p" help:"command to run to get a png stored in {{.Output}}"`
-	JPEGQuality int    `default:"1" help:"jpeg quality, 1 to 100, higher is better"`
+	JPEGQuality int    `default:"5" help:"jpeg quality, 1 to 100, higher is better"`
 	MaxBytes    int    `default:"50000" help:"max bytes for screenshot"`
+	Greyscale   bool   `default:"false" help:"if true, convert image to greyscale"`
 }
 
 type ScreenshotSource struct {
@@ -82,14 +83,16 @@ func (s *ScreenshotSource) Screenshot(ctx context.Context) (*utils.SerializedIma
 		return nil, errs.Wrap(err)
 	}
 
-	region := pixels.Bounds().Max
-	toGrey := image.NewRGBA(image.Rect(0, 0, region.X, region.Y))
-	for y := 0; y < region.Y; y++ {
-		for x := 0; x < region.X; x++ {
-			toGrey.Set(x, y, color.GrayModel.Convert(pixels.At(x, y)))
+	if s.cfg.Greyscale {
+		region := pixels.Bounds().Max
+		toGrey := image.NewRGBA(image.Rect(0, 0, region.X, region.Y))
+		for y := 0; y < region.Y; y++ {
+			for x := 0; x < region.X; x++ {
+				toGrey.Set(x, y, color.GrayModel.Convert(pixels.At(x, y)))
+			}
 		}
+		pixels = toGrey
 	}
-	pixels = toGrey
 
 	var outBuf bytes.Buffer
 	for {

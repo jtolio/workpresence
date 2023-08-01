@@ -25,4 +25,3 @@ func logDebug(format string, arg ...interface{}) {
 func logInfo(format string, arg ...interface{}) {
 	slog.Info(fmt.Sprintf(format, arg...))
 }
-

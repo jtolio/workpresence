@@ -14,7 +14,7 @@ type Config struct {
 	UplinkAccess string        `help:"storj uplink access grant"`
 	Bucket       string        `help:"storj bucket"`
 	PathPrefix   string        `help:"storj path prefix"`
-	Expiration   time.Duration `default:"1m" help:"when screenshots expire. 0 means no expiration."`
+	Expiration   time.Duration `default:"90s" help:"when screenshots expire. 0 means no expiration."`
 	History      bool          `help:"if true, keep history" default:"false"`
 }
 

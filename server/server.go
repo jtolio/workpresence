@@ -17,7 +17,7 @@ import (
 )
 
 type Config struct {
-	ScreenshotInterval       time.Duration `default:"10s" "the interval between screenshots"`
+	ScreenshotInterval       time.Duration `default:"45s" "the interval between screenshots"`
 	ScreenshotIntervalJitter bool          `default:"false" "if true, will jitter screenshot interval"`
 }
 
@@ -98,18 +98,13 @@ func (s *Server) pageResume(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pageLanding(w http.ResponseWriter, r *http.Request) {
-	try.E1(w.Write([]byte(`<!doctype html><html><head>
-	<meta http-equiv="refresh" content="5">
-	</head><body>`)))
+	try.E1(w.Write(indexHTMLHeader))
 	if s.paused.Load() {
 		try.E1(w.Write([]byte(`<p>Paused</p><p><a href="/resume">Resume</a></p>`)))
 	} else {
 		try.E1(w.Write([]byte(`<p>Running</p><p><a href="/pause">Pause</a></p>`)))
 	}
-	if s.latest.Load() != nil {
-		try.E1(w.Write([]byte(`<img src="/latest" width=600>`)))
-	}
-	try.E1(w.Write([]byte(`</body></html>`)))
+	try.E1(w.Write(indexHTMLFooter))
 }
 
 func (s *Server) pageLatest(w http.ResponseWriter, r *http.Request) {
