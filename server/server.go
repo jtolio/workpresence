@@ -66,23 +66,28 @@ func (s *Server) interval() time.Duration {
 	return rv
 }
 
+func (s *Server) takeScreenshot(ctx context.Context) {
+	if s.paused.Load() {
+		return
+	}
+	ts := time.Now()
+	img, err := s.source.Screenshot(ctx)
+	if err != nil {
+		slog.Error("failed to capture screenshot", fmt.Errorf("%+w", err))
+		return
+	}
+	s.latest.Store(img)
+	err = s.dest.Store(ctx, ts, img)
+	if err != nil {
+		slog.Error("failed to store screenshot", err)
+		return
+	}
+}
+
 func (s *Server) Run(ctx context.Context) error {
+	s.takeScreenshot(ctx)
 	for time2.Sleep(ctx, s.interval()) {
-		if s.paused.Load() {
-			continue
-		}
-		ts := time.Now()
-		img, err := s.source.Screenshot(ctx)
-		if err != nil {
-			slog.Error("failed to capture screenshot", fmt.Errorf("%+w", err))
-			continue
-		}
-		s.latest.Store(img)
-		err = s.dest.Store(ctx, ts, img)
-		if err != nil {
-			slog.Error("failed to store screenshot", err)
-			continue
-		}
+		s.takeScreenshot(ctx)
 	}
 	return ctx.Err()
 }
@@ -94,6 +99,7 @@ func (s *Server) pagePause(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) pageResume(w http.ResponseWriter, r *http.Request) {
 	s.paused.Store(false)
+	s.takeScreenshot(r.Context())
 	whfatal.Redirect("/")
 }
 
