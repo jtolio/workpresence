@@ -8,7 +8,6 @@ import (
 	"image/color"
 	"image/jpeg"
 	"image/png"
-	"math"
 	"os"
 	"os/exec"
 	"text/template"
@@ -20,8 +19,8 @@ import (
 
 type Config struct {
 	Command     string `default:"spectacle -m -b -n -o {{.Output}} -d 0 -p" help:"command to run to get a png stored in {{.Output}}"`
-	JPEGQuality int    `default:"5" help:"jpeg quality, 1 to 100, higher is better"`
-	MaxBytes    int    `default:"50000" help:"max bytes for screenshot"`
+	JPEGQuality int    `default:"1" help:"jpeg quality, 1 to 100, higher is better"`
+	MaxWidth    int    `default:"1024" help:"max width for screenshot"`
 	Greyscale   bool   `default:"false" help:"if true, convert image to greyscale"`
 }
 
@@ -94,23 +93,19 @@ func (s *ScreenshotSource) Screenshot(ctx context.Context) (*utils.SerializedIma
 		pixels = toGrey
 	}
 
-	var outBuf bytes.Buffer
-	for {
-		err = jpeg.Encode(&outBuf, pixels, &jpeg.Options{Quality: s.cfg.JPEGQuality})
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		if outBuf.Len() <= s.cfg.MaxBytes {
-			break
-		}
+	if pixels.Bounds().Max.X > s.cfg.MaxWidth {
+		newX := s.cfg.MaxWidth
+		newY := pixels.Bounds().Max.Y * s.cfg.MaxWidth / pixels.Bounds().Max.X
 
-		newX := float64(pixels.Bounds().Max.X) * math.Sqrt(float64(s.cfg.MaxBytes)/float64(outBuf.Len()))
-		newY := float64(pixels.Bounds().Max.Y) * math.Sqrt(float64(s.cfg.MaxBytes)/float64(outBuf.Len()))
-
-		outBuf.Reset()
-		resized := image.NewRGBA(image.Rect(0, 0, int(newX), int(newY)))
+		resized := image.NewRGBA(image.Rect(0, 0, newX, newY))
 		draw.NearestNeighbor.Scale(resized, resized.Rect, pixels, pixels.Bounds(), draw.Over, nil)
 		pixels = resized
+	}
+
+	var outBuf bytes.Buffer
+	err = jpeg.Encode(&outBuf, pixels, &jpeg.Options{Quality: s.cfg.JPEGQuality})
+	if err != nil {
+		return nil, errs.Wrap(err)
 	}
 
 	return &utils.SerializedImage{
