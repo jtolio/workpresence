@@ -35,6 +35,7 @@ type Server struct {
 	dest   ScreenshotDest
 	paused atomic.Bool
 	latest atomic.Value
+	cancel func()
 
 	http.Handler
 }
@@ -49,6 +50,7 @@ func New(cfg Config, source ScreenshotSource, dest ScreenshotDest) *Server {
 		"":            whmux.Exact(http.HandlerFunc(s.pageLanding)),
 		"pause":       whmux.ExactPath(http.HandlerFunc(s.pagePause)),
 		"resume":      whmux.ExactPath(http.HandlerFunc(s.pageResume)),
+		"quit":        whmux.ExactPath(http.HandlerFunc(s.pageQuit)),
 		"latest":      whmux.Exact(http.HandlerFunc(s.pageLatest)),
 		"favicon.ico": whmux.Exact(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})),
 	}
@@ -85,9 +87,11 @@ func (s *Server) takeScreenshot(ctx context.Context) {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	s.takeScreenshot(ctx)
-	for time2.Sleep(ctx, s.interval()) {
-		s.takeScreenshot(ctx)
+	cancelCtx, cancel := context.WithCancel(ctx)
+	s.cancel = cancel
+	s.takeScreenshot(cancelCtx)
+	for time2.Sleep(cancelCtx, s.interval()) {
+		s.takeScreenshot(cancelCtx)
 	}
 	return ctx.Err()
 }
@@ -95,6 +99,13 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) pagePause(w http.ResponseWriter, r *http.Request) {
 	s.paused.Store(true)
 	whfatal.Redirect("/")
+}
+
+func (s *Server) pageQuit(w http.ResponseWriter, r *http.Request) {
+	cancel := s.cancel
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func (s *Server) pageResume(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +117,7 @@ func (s *Server) pageResume(w http.ResponseWriter, r *http.Request) {
 func (s *Server) pageLanding(w http.ResponseWriter, r *http.Request) {
 	try.E1(w.Write(indexHTMLHeader))
 	if s.paused.Load() {
-		try.E1(w.Write([]byte(`<p>Paused</p><p><a href="/resume">Resume</a></p>`)))
+		try.E1(w.Write([]byte(`<p style="color:red;">Paused</p><p><a href="/resume">Resume</a></p>`)))
 	} else {
 		try.E1(w.Write([]byte(`<p>Running</p><p><a href="/pause">Pause</a></p>`)))
 	}

@@ -6,6 +6,7 @@ var indexHTMLHeader = []byte(`<!doctype html>
 `)
 
 var indexHTMLFooter = []byte(`
+<p><a href="/quit">Quit</a></p>
 <div style="width: 90vw; height: 90vh;">
 	<img id="latest" style="max-width: 100%; max-height: 100%; height: auto;">
 </div>
