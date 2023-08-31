@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"time"
@@ -11,11 +12,12 @@ import (
 )
 
 type Config struct {
-	UplinkAccess string        `help:"storj uplink access grant"`
-	Bucket       string        `help:"storj bucket"`
-	PathPrefix   string        `help:"storj path prefix"`
-	Expiration   time.Duration `default:"90s" help:"when screenshots expire. 0 means no expiration."`
-	History      bool          `help:"if true, keep history" default:"false"`
+	UplinkAccess     string        `help:"storj uplink access grant"`
+	ListingAccessKey string        `help:"storj listing access key"`
+	ListingSecretKey string        `help:"storj listing secret key"`
+	Bucket           string        `help:"storj bucket"`
+	PathPrefix       string        `help:"storj path prefix"`
+	Expiration       time.Duration `default:"1h" help:"when screenshots expire. 0 means no expiration."`
 }
 
 type ImageDest struct {
@@ -63,22 +65,25 @@ func (d *ImageDest) init(ctx context.Context) error {
 	if err == nil || !errors.Is(err, uplink.ErrObjectNotFound) {
 		return err
 	}
-	return d.upload(ctx, "index.html", indexHTML, "text/html", time.Time{})
+	var out bytes.Buffer
+	err = indexHTML.Execute(&out, struct {
+		Config Config
+	}{
+		Config: d.cfg,
+	})
+	if err != nil {
+		return err
+	}
+	return d.upload(ctx, "index.html", out.Bytes(), "text/html", time.Time{})
 }
 
 func (d *ImageDest) Store(ctx context.Context, ts time.Time, img *utils.SerializedImage) error {
-	pathname := ts.UTC().Format("2006/01/02/15-04-05" + img.Extension)
+	pathname := ts.UTC().Format("2006/01/02/15/04-05" + img.Extension)
 	var expiration time.Time
 	if d.cfg.Expiration > 0 {
 		expiration = time.Now().Add(d.cfg.Expiration)
 	}
-	if d.cfg.History {
-		err := d.upload(ctx, pathname, img.Data, img.MIMEType, expiration)
-		if err != nil {
-			return err
-		}
-	}
-	return d.upload(ctx, "latest", img.Data, img.MIMEType, expiration)
+	return d.upload(ctx, pathname, img.Data, img.MIMEType, expiration)
 }
 
 func (d *ImageDest) Close() error {

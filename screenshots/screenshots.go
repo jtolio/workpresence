@@ -20,7 +20,7 @@ import (
 type Config struct {
 	Command     string `default:"spectacle -m -b -n -o {{.Output}} -d 0 -p" help:"command to run to get a png stored in {{.Output}}"`
 	JPEGQuality int    `default:"1" help:"jpeg quality, 1 to 100, higher is better"`
-	MaxWidth    int    `default:"1024" help:"max width for screenshot"`
+	MaxWidth    int    `default:"200" help:"max width for screenshot"`
 	Greyscale   bool   `default:"false" help:"if true, convert image to greyscale"`
 }
 
