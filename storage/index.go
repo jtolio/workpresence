@@ -6,8 +6,16 @@ import (
 
 var indexHTML = template.Must(template.New("index").Parse(`<!doctype html>
 <html>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+</head>
 <body onload="main();">
   <ul id="bucket-content"></ul>
+  <p style="font-size:smaller; text-align: right;">
+    This page is served from <a href="?wrap=1">all around the world</a>.</p>
+
   <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1168.0.min.js"></script>
   <script>
     AWS.config.update({
