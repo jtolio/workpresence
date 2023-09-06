@@ -36,6 +36,38 @@ var indexHTML = template.Must(template.New("index").Parse(`<!doctype html>
     const imgWidth = 400;
     const refreshInterval = 5000;
 
+    function newImageLoader() {
+      var self = {
+        loading: new Map(),
+        cache: new Map()
+      };
+
+      self.load = async function(img, url) {
+        if (self.cache.has(url)) {
+          img.src = self.cache.get(url);
+          return;
+        }
+        if(self.loading.has(url)) { return; }
+        self.loading.set(url, true);
+        try {
+          var response = await fetch(url);
+          if (response.status != 200) {
+            throw new Error(response.statusText);
+          }
+          var data = URL.createObjectURL(await response.blob())
+          self.cache.set(url, data);
+          img.src = data;
+        } catch(error) {
+          console.log(error);
+        }
+        self.loading.delete(url);
+      }
+
+      return self;
+    }
+
+    var imageLoader = newImageLoader();
+
     async function listBucketContents(bucket, prefix, continuationToken=null, entries=[]) {
       const params = {
         Bucket: bucket,
@@ -92,7 +124,7 @@ var indexHTML = template.Must(template.New("index").Parse(`<!doctype html>
       }
       interval.entries.push(latest);
       interval.end = timestamp(latest);
-      img.src = latest;
+      imageLoader.load(img, latest);
     }
 
     async function main() {
@@ -137,12 +169,12 @@ var indexHTML = template.Must(template.New("index").Parse(`<!doctype html>
       intervals.reverse().forEach((interval) => {
         var listItem = document.createElement("li");
         var img = document.createElement("img");
-        img.src = sitePrefix + interval.entries[interval.entries.length-1];
+        imageLoader.load(img, sitePrefix + interval.entries[interval.entries.length-1]);
         img.width = imgWidth;
         img.onmousemove = function(ev) {
           var entry = Math.round(ev.offsetX * interval.entries.length / imgWidth);
           if (interval.entries[entry]) {
-            img.src = sitePrefix + interval.entries[entry];
+            imageLoader.load(img, sitePrefix + interval.entries[entry]);
           }
         };
         var text = document.createElement("p");
